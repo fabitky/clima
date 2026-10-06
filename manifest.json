@@ -10,10 +10,28 @@
   "lang": "es-AR",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%231b4965'/%3E%3Ctext x='96' y='120' font-size='100' text-anchor='middle' fill='white'%3E⛰%3C/text%3E%3C/svg%3E",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -22,52 +40,28 @@
       "short_name": "Hoy",
       "description": "Ver el clima actual de El Bolsón",
       "url": "./index.html?tab=hoy",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%231b4965'/%3E%3Ctext x='48' y='68' font-size='56' text-anchor='middle' fill='white'%3E☀️%3C/text%3E%3C/svg%3E",
-          "sizes": "96x96",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Próximos 7 días",
       "short_name": "7 días",
       "description": "Ver el pronóstico semanal",
       "url": "./index.html?tab=pronostico",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%231b4965'/%3E%3Ctext x='48' y='68' font-size='56' text-anchor='middle' fill='white'%3E📅%3C/text%3E%3C/svg%3E",
-          "sizes": "96x96",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Microclimas del valle",
       "short_name": "Microclimas",
       "description": "Comparar centro, Mallín Ahogado y Lago Puelo",
       "url": "./index.html?tab=microclimas",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%231b4965'/%3E%3Ctext x='48' y='68' font-size='56' text-anchor='middle' fill='white'%3E🗺%3C/text%3E%3C/svg%3E",
-          "sizes": "96x96",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Memoria climática",
       "short_name": "Memoria",
       "description": "Buscar una fecha histórica o explorar años",
       "url": "./index.html?tab=memoria",
-      "icons": [
-        {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%231b4965'/%3E%3Ctext x='48' y='68' font-size='56' text-anchor='middle' fill='white'%3E📊%3C/text%3E%3C/svg%3E",
-          "sizes": "96x96",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
