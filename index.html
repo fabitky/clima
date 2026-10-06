@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b4965">
+<title>El Bolsón Clima Local</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-day">
+
+<header class="app-header">
+  <div class="header-top">
+    <div>
+      <h1>El Bolsón</h1>
+      <p class="subtitle">Clima Local · Río Negro</p>
+    </div>
+    <button id="btn-update" class="btn-icon" title="Actualizar datos">⟳</button>
+  </div>
+  <div id="sync-status" class="sync-status">Cargando…</div>
+  <div id="app-error" class="app-error" style="display:none"></div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="hoy">Hoy</button>
+  <button class="tab" data-tab="pronostico">7 días</button>
+  <button class="tab" data-tab="microclimas">Microclimas</button>
+  <button class="tab" data-tab="memoria">Memoria</button>
+</nav>
+
+<main>
+
+  <section id="tab-hoy" class="tab-content active">
+    <div class="card hero">
+      <div class="hero-main">
+        <div class="hero-icon" id="hero-icon"></div>
+        <div class="hero-temp">
+          <span id="temp-actual">--</span><span class="unit">°C</span>
+        </div>
+      </div>
+      <div class="hero-desc" id="desc-actual">Sin datos</div>
+      <div class="hero-compare" id="comparacion-hoy">—</div>
+      <div class="hero-resumen" id="resumen-hoy"></div>
+      <div class="hero-meta">
+        <div><span class="lbl">Sensación</span><strong id="sensacion">--°</strong></div>
+        <div><span class="lbl">Viento</span><strong id="viento">-- km/h</strong></div>
+        <div><span class="lbl">Humedad</span><strong id="humedad">--%</strong></div>
+        <div><span class="lbl">Presión</span><strong id="presion">-- hPa</strong></div>
+      </div>
+      <button id="btn-detalle-hoy" class="hero-btn-detalle">
+        Ver detalle completo del día <span class="arrow">→</span>
+      </button>
+      <div class="hero-sun" id="hero-sun"></div>
+    </div>
+
+    <div id="alertas-container"></div>
+
+    <div class="fire-card" id="fire-card"></div>
+
+    <div class="card">
+      <h2>Próximas 24 horas</h2>
+      <div id="strip-24h" class="hourly-strip"></div>
+    </div>
+
+    <div class="card">
+      <h2>Actividades del valle</h2>
+      <div id="actividades" class="actividades"></div>
+    </div>
+
+    <div class="sabias-card" id="sabias-card"></div>
+  </section>
+
+  <section id="tab-pronostico" class="tab-content">
+    <div class="card card-nopad">
+      <h2 class="card-h2-pad">Próximos 7 días</h2>
+      <div id="lista-7d" class="week-list"></div>
+    </div>
+    <p class="muted" style="text-align:center;padding:0 12px 12px">Tocá cualquier día para ver el detalle hora por hora.</p>
+  </section>
+
+  <section id="tab-microclimas" class="tab-content">
+    <div class="card">
+      <h2>Comparación del valle (hoy)</h2>
+      <p class="muted">Diferencias entre los tres puntos del valle.</p>
+      <div id="micro-chart" class="micro-chart"></div>
+    </div>
+  </section>
+
+  <section id="tab-memoria" class="tab-content">
+    <div class="card">
+      <h2>Buscar por fecha</h2>
+      <p class="muted">Consultá el clima de cualquier día desde 1940. Se guarda para uso offline.</p>
+      <div class="hist-search">
+        <input type="date" id="hist-fecha" min="1940-01-01">
+        <button id="hist-btn" class="btn-primary">Buscar</button>
+      </div>
+      <div id="hist-resultado"></div>
+    </div>
+
+    <div class="card">
+      <h2>Explorar por año</h2>
+      <label class="selector-anio">
+        <span>Año:</span>
+        <select id="sel-anio"></select>
+      </label>
+      <div id="anio-info" class="anio-info"></div>
+      <div id="anio-chart" class="bars-pair"></div>
+      <div id="anio-legend" class="bars-legend"></div>
+      <div id="anio-comparativa" class="anio-comparativa"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tendencia anual desde 1940</h2>
+      <div id="anual-chart" class="sparkline"></div>
+      <div id="anual-axis" class="sparkline-axis"></div>
+      <div id="tendencia-texto" class="tendencia-texto"></div>
+    </div>
+
+    <div class="card">
+      <h2>Precipitación mensual típica</h2>
+      <div id="normales-chart" class="bars-v"></div>
+      <div id="normales-tabla" class="normales-tabla"></div>
+    </div>
+
+    <div class="card">
+      <h2>Récords locales</h2>
+      <div id="records-panel" class="records"></div>
+    </div>
+  </section>
+
+</main>
+
+<div id="modal-dia" class="modal-overlay hidden">
+  <div class="modal-content" id="modal-content">
+    <button class="modal-close" id="modal-close-btn" aria-label="Cerrar">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <span id="footer-info">El Bolsón Clima Local · offline-first</span>
+</footer>
+
+<script src="js/storage.js"></script>
+<script src="js/sun.js"></script>
+<script src="js/fire.js"></script>
+<script src="js/sky.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/initial-forecast.js"></script>
+<script src="js/data-fetcher.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
