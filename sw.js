@@ -1,4 +1,4 @@
-const CACHE = 'bolson-clima-v15';
+const CACHE = 'bolson-clima-v16';
 const ASSETS = [
   './',
   './index.html',
