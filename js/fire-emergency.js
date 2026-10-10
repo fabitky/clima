@@ -20,7 +20,7 @@ const FireEmergency = (() => {
   const VIENTO_LATS = [-42.8, -42.4, -42.0, -41.6, -41.2];
   const VIENTO_LONS = [-72.4, -71.9, -71.4, -70.9, -70.4];
 
-  // SNMF — nombres de meses en español para armar las URLs
+  // SNMF
   const MESES_ES = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
@@ -29,8 +29,8 @@ const FireEmergency = (() => {
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
-  const SNMF_STORE = 'historical'; // reutilizamos el store existente
-  const SNMF_PREFIX = 'snmf_';     // clave: snmf_YYYY-MM
+  const SNMF_STORE = 'historical';
+  const SNMF_PREFIX = 'snmf_';
 
   let cacheFocos = { data: null, ts: 0 };
   let cacheViento = { data: null, ts: 0 };
@@ -44,8 +44,7 @@ const FireEmergency = (() => {
   let leafletCargando = null;
   let mapaInicializado = false;
 
-  // Estado del reporte SNMF
-  let snmfBlobUrl = null; // object URL activo (hay que revocarlo al cerrar)
+  let snmfBlobUrl = null;
 
   // ==========================================
   // CLASIFICACIÓN POR FRP
@@ -538,34 +537,35 @@ const FireEmergency = (() => {
   // REPORTE SNMF
   // ==========================================
 
-  // Calcula el mes esperado (mes anterior) y devuelve {año, mes}
   function mesEsperado() {
     const hoy = new Date();
-    let mes = hoy.getMonth(); // 0-11, el mes anterior sería mes-1 (índice del array)
+    let mes = hoy.getMonth();
     let año = hoy.getFullYear();
-    // getMonth() devuelve el mes actual 0-indexed.
-    // Restamos 1 para obtener el mes anterior.
     mes = mes - 1;
     if (mes < 0) { mes = 11; año -= 1; }
-    return { año, mes }; // mes 0-11
+    return { año, mes };
   }
 
-  // Clave única para almacenar el PDF de un mes/año
   function snmfKey(año, mes) {
     const mm = String(mes + 1).padStart(2, '0');
     return `${SNMF_PREFIX}${año}-${mm}`;
   }
 
-  // Intenta descargar el PDF con las 3 URLs posibles
-  async function descargarReporte(año, mes, onProgress) {
+  // Devuelve las URLs candidatas para un mes/año
+  function snmfUrls(año, mes) {
     const nombreMes = MESES_ES[mes];
-    const urls = [
+    return [
       `https://www.argentina.gob.ar/sites/default/files/${nombreMes}_${año}.pdf`,
       `https://back.argentina.gob.ar/sites/default/files/2018/05/${nombreMes}_${año}.pdf`,
       `https://www.argentina.gob.ar/sites/default/files/2018/05/${nombreMes}_${año}.pdf`
     ];
+  }
 
+  // Intenta descargar el PDF con fetch (modo offline). Puede fallar por CORS.
+  async function descargarReporte(año, mes, onProgress) {
+    const urls = snmfUrls(año, mes);
     let ultimoError = null;
+
     for (const url of urls) {
       try {
         const r = await fetch(url);
@@ -573,8 +573,6 @@ const FireEmergency = (() => {
           ultimoError = new Error('HTTP ' + r.status);
           continue;
         }
-
-        // Leer con progreso si el servidor expone Content-Length
         const contentLength = parseInt(r.headers.get('Content-Length') || '0', 10);
         const reader = r.body.getReader();
         const chunks = [];
@@ -598,12 +596,20 @@ const FireEmergency = (() => {
     throw ultimoError || new Error('No se encontró el reporte');
   }
 
+  // Detecta si un error fue causado por CORS o mixed content (fetch bloqueado)
+  function esErrorCORS(e) {
+    if (!e) return false;
+    const msg = String(e.message || e).toLowerCase();
+    return msg.includes('failed to fetch') ||
+           msg.includes('networkerror') ||
+           msg.includes('cors');
+  }
+
   // Renderiza el bloque SNMF según el estado
   async function renderSNMF() {
     const cont = document.getElementById('snmf-contenido');
     if (!cont) return;
 
-    // Buscar si hay un PDF descargado (del mes esperado o de cualquier otro)
     const { año, mes } = mesEsperado();
     const key = snmfKey(año, mes);
 
@@ -611,6 +617,9 @@ const FireEmergency = (() => {
     try {
       guardado = await Storage.get(SNMF_STORE, key);
     } catch (e) { /* no hay */ }
+
+    // Marca si ya avisamos del error CORS en esta sesión para no repetir
+    const yaFalloCORS = cont.dataset.corsFallado === '1';
 
     if (guardado && guardado.blob) {
       // ===== HAY PDF DESCARGADO =====
@@ -638,29 +647,64 @@ const FireEmergency = (() => {
 
       document.getElementById('snmf-btn-ver').onclick = () => mostrarVisorSNMF(guardado);
       document.getElementById('snmf-btn-borrar').onclick = () => borrarReporteSNMF(key);
-    } else {
-      // ===== NO HAY PDF DESCARGADO =====
+      return;
+    }
+
+    // ===== NO HAY PDF DESCARGADO =====
+    // Si ya sabemos que el fetch falla por CORS, mostramos directamente el modo "abrir"
+    if (yaFalloCORS) {
+      const urls = snmfUrls(año, mes);
+      const urlPrincipal = urls[0];
       cont.innerHTML = `
         <div class="snmf-info snmf-info-empty">
           <div class="snmf-info-head">
-            <span class="snmf-icon">📥</span>
+            <span class="snmf-icon">📄</span>
             <div class="snmf-info-text">
-              <span class="snmf-titulo">Sin descargar</span>
-              <span class="snmf-meta">El reporte más reciente es el de ${MESES_LABEL[mes]} ${año}</span>
+              <span class="snmf-titulo">${MESES_LABEL[mes]} ${año}</span>
+              <span class="snmf-meta">Descarga directa no disponible (CORS).</span>
             </div>
           </div>
+          <p class="snmf-nota">
+            El servidor del gobierno no permite descargar el PDF desde esta app.
+            Podés abrirlo en una pestaña del navegador y verlo ahí.
+          </p>
           <div class="snmf-acciones">
-            <button id="snmf-btn-descargar" class="snmf-btn snmf-btn-primary">📥 Descargar</button>
+            <a href="${urlPrincipal}" target="_blank" rel="noopener" class="snmf-btn snmf-btn-primary">
+              🌐 Abrir reporte
+            </a>
+            <button id="snmf-btn-reintentar" class="snmf-btn snmf-btn-secondary">🔄 Reintentar</button>
           </div>
         </div>
-        <div id="snmf-progreso" class="snmf-progreso hidden"></div>
       `;
-
-      document.getElementById('snmf-btn-descargar').onclick = () => descargarYGuardarSNMF(año, mes, key);
+      document.getElementById('snmf-btn-reintentar').onclick = () => {
+        delete cont.dataset.corsFallado;
+        renderSNMF();
+      };
+      return;
     }
+
+    // Estado inicial: botón de descarga con fetch (intenta el modo offline)
+    cont.innerHTML = `
+      <div class="snmf-info snmf-info-empty">
+        <div class="snmf-info-head">
+          <span class="snmf-icon">📥</span>
+          <div class="snmf-info-text">
+            <span class="snmf-titulo">Sin descargar</span>
+            <span class="snmf-meta">El reporte más reciente es el de ${MESES_LABEL[mes]} ${año}</span>
+          </div>
+        </div>
+        <div class="snmf-acciones">
+          <button id="snmf-btn-descargar" class="snmf-btn snmf-btn-primary">📥 Descargar</button>
+        </div>
+      </div>
+      <div id="snmf-progreso" class="snmf-progreso hidden"></div>
+    `;
+
+    document.getElementById('snmf-btn-descargar').onclick = () =>
+      descargarYGuardarSNMF(año, mes, key, cont);
   }
 
-  async function descargarYGuardarSNMF(año, mes, key) {
+  async function descargarYGuardarSNMF(año, mes, key, contRef) {
     const progCont = document.getElementById('snmf-progreso');
     const btnDesc = document.getElementById('snmf-btn-descargar');
     if (btnDesc) btnDesc.disabled = true;
@@ -684,7 +728,6 @@ const FireEmergency = (() => {
         progCont.querySelector('.snmf-prog-fill').style.width = pct + '%';
       });
 
-      // Guardar en IndexedDB
       await Storage.put(SNMF_STORE, {
         id: key,
         año, mes,
@@ -693,18 +736,16 @@ const FireEmergency = (() => {
         descargadoEn: Date.now()
       });
 
-      // Refrescar el bloque
       await renderSNMF();
     } catch (e) {
-      if (progCont) {
-        progCont.innerHTML = `
-          <div class="snmf-prog-error">
-            ⚠️ No se pudo descargar el reporte.<br>
-            <small>${e.message || 'Error de red'}</small>
-          </div>
-        `;
+      const esCors = esErrorCORS(e);
+      // Guardamos en el contenedor que ya falló por CORS, así el próximo render
+      // muestra directamente el modo "abrir en pestaña".
+      if (esCors && contRef) {
+        contRef.dataset.corsFallado = '1';
       }
-      if (btnDesc) btnDesc.disabled = false;
+      // Re-render para que se aplique el nuevo modo
+      await renderSNMF();
     }
   }
 
@@ -714,7 +755,6 @@ const FireEmergency = (() => {
     const titulo = document.getElementById('snmf-viewer-titulo');
     if (!viewer || !frame) return;
 
-    // Revocar el object URL anterior si quedó colgado
     if (snmfBlobUrl) {
       URL.revokeObjectURL(snmfBlobUrl);
       snmfBlobUrl = null;
@@ -723,8 +763,6 @@ const FireEmergency = (() => {
     snmfBlobUrl = URL.createObjectURL(guardado.blob);
     titulo.textContent = `${MESES_LABEL[guardado.mes]} ${guardado.año}`;
 
-    // Intento el iframe. Si falla (algunos navegadores bloquean blob en iframe),
-    // muestro un fallback con el botón de abrir externo.
     frame.innerHTML = `
       <iframe src="${snmfBlobUrl}" class="snmf-iframe" title="Reporte SNMF"></iframe>
       <div class="snmf-iframe-fallback">
@@ -736,7 +774,6 @@ const FireEmergency = (() => {
 
     viewer.classList.remove('hidden');
 
-    // Scroll suave hacia el visor
     setTimeout(() => {
       viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -797,7 +834,6 @@ const FireEmergency = (() => {
     const listado = document.getElementById('fire-listado');
     if (!listado) return;
 
-    // SNMF: siempre se intenta renderizar el estado (es rápido, solo lee IndexedDB)
     renderSNMF();
 
     if (!cacheFocos.data) renderEstado('Consultando focos de calor…');
