@@ -25,8 +25,8 @@
 <nav class="tabs">
   <button class="tab active" data-tab="hoy">Hoy</button>
   <button class="tab" data-tab="pronostico">7 días</button>
-  <button class="tab" data-tab="microclimas">Microclimas</button>
   <button class="tab" data-tab="memoria">Memoria</button>
+  <button class="tab" data-tab="emergencia">🔥 Emergencia</button>
 </nav>
 
 <main>
@@ -64,6 +64,12 @@
     </div>
 
     <div class="card">
+      <h2>Comparación del valle</h2>
+      <p class="muted">Diferencias entre los tres puntos del valle: centro, Mallín Ahogado y Lago Puelo.</p>
+      <div id="micro-chart" class="micro-chart"></div>
+    </div>
+
+    <div class="card">
       <h2>Actividades del valle</h2>
       <div id="actividades" class="actividades"></div>
     </div>
@@ -79,17 +85,10 @@
     <p class="muted" style="text-align:center;padding:0 12px 12px">Tocá cualquier día para ver el detalle hora por hora.</p>
   </section>
 
-  <section id="tab-microclimas" class="tab-content">
-    <div class="card">
-      <h2>Comparación del valle (hoy)</h2>
-      <p class="muted">Diferencias entre los tres puntos del valle.</p>
-      <div id="micro-chart" class="micro-chart"></div>
-    </div>
-  </section>
-
   <section id="tab-memoria" class="tab-content">
+
     <div class="card">
-      <h2>Buscar por fecha</h2>
+      <h2>Buscar por fecha <button class="info-btn" data-info="hist" aria-label="Información">i</button></h2>
       <p class="muted">Consultá el clima de cualquier día desde 1940. Se guarda para uso offline.</p>
       <div class="hist-search">
         <input type="date" id="hist-fecha" min="1940-01-01">
@@ -99,34 +98,138 @@
     </div>
 
     <div class="card">
-      <h2>Explorar por año</h2>
+      <h2>Explorar por año <button class="info-btn" data-info="anio" aria-label="Información">i</button></h2>
       <label class="selector-anio">
         <span>Año:</span>
         <select id="sel-anio"></select>
       </label>
       <div id="anio-info" class="anio-info"></div>
-      <div id="anio-chart" class="bars-pair"></div>
-      <div id="anio-legend" class="bars-legend"></div>
+      <div id="anio-aviso" class="anio-aviso hidden"></div>
+      <div class="anio-chart-title">🌡️ Temperatura mensual</div>
+      <div id="anio-temp-chart" class="bars-pair"></div>
+      <div id="anio-temp-legend" class="bars-legend"></div>
+      <div class="anio-chart-title">💧 Precipitación mensual</div>
+      <div id="anio-precip-chart" class="bars-pair"></div>
+      <div id="anio-precip-legend" class="bars-legend"></div>
+      <div id="anio-estaciones" class="estaciones-grid"></div>
       <div id="anio-comparativa" class="anio-comparativa"></div>
     </div>
 
     <div class="card">
-      <h2>Tendencia anual desde 1940</h2>
-      <div id="anual-chart" class="sparkline"></div>
-      <div id="anual-axis" class="sparkline-axis"></div>
-      <div id="tendencia-texto" class="tendencia-texto"></div>
+      <h2>Tendencia de precipitación <button class="info-btn" data-info="tendencia" aria-label="Información">i</button></h2>
+      <label class="selector-anio">
+        <span>Rango:</span>
+        <select id="sel-rango">
+          <option value="1940-2025">1940–2025 (todo el registro)</option>
+          <option value="1980-2025">1980–2025 (últimas 4 décadas)</option>
+          <option value="2000-2025">2000–2025 (cuarto de siglo)</option>
+          <option value="2005-2025">2005–2025 (últimas 2 décadas)</option>
+          <option value="2015-2025">2015–2025 (última década)</option>
+        </select>
+      </label>
+
+      <div class="precip-resumen" id="precip-resumen"></div>
+
+      <div class="precip-chart-wrap">
+        <div class="precip-chart" id="precip-chart"></div>
+        <div class="precip-promedio-line" id="precip-promedio-line" style="display:none">
+          <span class="promedio-lbl" id="promedio-lbl"></span>
+        </div>
+      </div>
+      <div class="precip-axis" id="precip-axis"></div>
+      <div class="precip-tooltip hidden" id="precip-tooltip"></div>
+      <div class="precip-tendencia-texto" id="precip-tendencia-texto"></div>
     </div>
 
     <div class="card">
-      <h2>Precipitación mensual típica</h2>
-      <div id="normales-chart" class="bars-v"></div>
-      <div id="normales-tabla" class="normales-tabla"></div>
+      <h2>Precipitación mensual <button class="info-btn" data-info="mensual" aria-label="Información">i</button></h2>
+      <label class="selector-anio">
+        <span>Comparar con:</span>
+        <select id="sel-anio-mensual"></select>
+      </label>
+      <div id="mensual-chart" class="bars-pair"></div>
+      <div id="mensual-legend" class="bars-legend"></div>
+      <div id="mensual-tabla" class="normales-tabla"></div>
+    </div>
+
+  </section>
+
+  <section id="tab-emergencia" class="tab-content">
+
+    <div class="card">
+      <h2>Focos de Calor · NASA FIRMS</h2>
+      <p class="muted" style="margin-bottom:14px">
+        Detecciones satelitales de las últimas 24 h en un radio de ~100 km desde El Bolsón.
+        Fuente: VIIRS (Suomi-NPP) · Actualizado cada 30 minutos.
+      </p>
+      <div id="fire-resumen" class="fire-resumen"></div>
     </div>
 
     <div class="card">
-      <h2>Récords locales</h2>
-      <div id="records-panel" class="records"></div>
+      <h2>Mapa</h2>
+      <div class="fire-map-scale-legend" id="fire-map-scale-legend">
+        <span class="scale-title">Intensidad:</span>
+        <span class="scale-item"><span class="scale-dot s1"></span>Débil</span>
+        <span class="scale-item"><span class="scale-dot s2"></span>Moderado</span>
+        <span class="scale-item"><span class="scale-dot s3"></span>Intenso</span>
+        <span class="scale-item"><span class="scale-dot s4"></span>Muy intenso</span>
+      </div>
+      <div class="fire-map-controls">
+        <button id="btn-toggle-wms" class="btn-toggle-layer" title="Mostrar antigüedad del fuego">
+          <span class="icon">🕒</span>
+          <span class="label">Antigüedad</span>
+        </button>
+        <button id="btn-toggle-viento" class="btn-toggle-layer" title="Mostrar viento sobre el mapa">
+          <span class="icon">💨</span>
+          <span class="label">Viento</span>
+        </button>
+      </div>
+      <div id="fire-map-wrapper" class="fire-map-wrapper hidden">
+        <div id="fire-map"></div>
+        <div class="fire-map-legend">
+          <div class="legend-item"><span class="dot high"></span> Alta</div>
+          <div class="legend-item"><span class="dot nominal"></span> Nominal</div>
+          <div class="legend-item"><span class="dot low"></span> Baja</div>
+        </div>
+        <button id="fire-map-recenter" class="fire-map-recenter" title="Centrar en El Bolsón">⌖</button>
+      </div>
+      <div id="fire-map-error" class="fire-map-error hidden">
+        <span>⚠️</span>
+        <div>
+          <p>No se pudo cargar el mapa.</p>
+          <button id="fire-map-retry" class="btn-retry">🔄 Reintentar</button>
+        </div>
+      </div>
+      <div id="fire-viento-leyenda" class="fire-viento-leyenda hidden">
+        <span class="fv-title">Viento:</span>
+        <span class="fv-item"><span class="fv-arrow" style="color:#2ecc71">↑</span> &lt; 10 km/h</span>
+        <span class="fv-item"><span class="fv-arrow" style="color:#f1c40f">↑</span> 10–25</span>
+        <span class="fv-item"><span class="fv-arrow" style="color:#f39c12">↑</span> 25–45</span>
+        <span class="fv-item"><span class="fv-arrow" style="color:#e74c3c">↑</span> &gt; 45</span>
+      </div>
     </div>
+
+    <div class="card">
+      <h2>Focos detectados</h2>
+      <div id="fire-listado" class="fire-listado"></div>
+    </div>
+
+    <div class="card" id="snmf-card">
+      <h2>Reporte SNMF</h2>
+      <p class="muted" style="margin-bottom:14px">
+        Informe mensual de peligro de incendios de vegetación. Incluye la sección de la
+        Regional Patagonia. Fuente: Servicio Nacional de Manejo del Fuego.
+      </p>
+      <div id="snmf-contenido"></div>
+      <div id="snmf-viewer" class="snmf-viewer hidden">
+        <div class="snmf-viewer-header">
+          <span id="snmf-viewer-titulo">Reporte</span>
+          <button id="snmf-cerrar-viewer" class="snmf-viewer-cerrar" aria-label="Cerrar visor">✕</button>
+        </div>
+        <div id="snmf-viewer-frame"></div>
+      </div>
+    </div>
+
   </section>
 
 </main>
@@ -135,6 +238,13 @@
   <div class="modal-content" id="modal-content">
     <button class="modal-close" id="modal-close-btn" aria-label="Cerrar">✕</button>
     <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="modal-info" class="modal-overlay hidden">
+  <div class="modal-content modal-info-content">
+    <button class="modal-close" id="modal-info-close" aria-label="Cerrar">✕</button>
+    <div id="modal-info-body"></div>
   </div>
 </div>
 
@@ -149,6 +259,7 @@
 <script src="js/alerts.js"></script>
 <script src="js/initial-forecast.js"></script>
 <script src="js/data-fetcher.js"></script>
+<script src="js/fire-emergency.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

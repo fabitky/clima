@@ -62,6 +62,13 @@
       "description": "Buscar una fecha histórica o explorar años",
       "url": "./index.html?tab=memoria",
       "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Emergencia Ígnea",
+      "short_name": "Incendios",
+      "description": "Mapa de focos de calor y alertas",
+      "url": "./index.html?tab=emergencia",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
