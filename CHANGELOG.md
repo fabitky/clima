@@ -16,6 +16,48 @@ a ser releases estables.
 
 ---
 
+## 1.19.2 (v38) · 2025-10-10
+**Fix: reporte SNMF con fallback por CORS**
+
+- El botón "Descargar" del reporte SNMF fallaba con `Failed to fetch` por
+  restricciones CORS del servidor del gobierno argentino.
+- Ahora el bloque detecta el error automáticamente y cambia a un modo
+  alternativo: **"Abrir reporte"**, que abre el PDF en una pestaña nueva
+  del navegador.
+- Nuevo aviso explicativo: "Descarga directa no disponible (CORS). El
+  servidor del gobierno no permite descargar el PDF desde esta app."
+- El modo se guarda en la sesión para no volver a intentar `fetch` en cada
+  render.
+- Nuevos estilos: `.snmf-nota`, `.snmf-btn-secondary`, `a.snmf-btn`.
+- **Nota:** si en algún momento el servidor habilita CORS, la app vuelve
+  automáticamente al modo descarga offline. No hay que cambiar nada.
+
+---
+
+## 1.19.1 (v38) · 2025-10-10
+**Fix: PWA no funcionaba offline**
+
+- El Service Worker usaba `cache.addAll()`, que falla completo si UN SOLO
+  archivo de la lista da 404 o error de red. Y como el error se tragaba con
+  `.catch(() => {})`, la app quedaba sin caché sin avisar.
+- Ahora cada archivo se cachea **individualmente** con `Promise.allSettled()`,
+  tolerando fallos aislados.
+- Nuevos logs en consola: `[SW] Instalado. Archivos cacheados: X/Y`, y avisos
+  por cada archivo que falle.
+- Nuevo manejo explícito de navegación (`req.mode === 'navigate'`) con fallback
+  a `index.html` cacheado, en lugar de depender del comportamiento implícito
+  del navegador.
+- Estrategia de caché por tipo de recurso:
+  - APIs externas (FIRMS, Open-Meteo, SNMF): network-first con fallback a
+    caché.
+  - Tiles del mapa: cache-first.
+  - Assets locales: cache-first con fallback a red.
+- **Nota:** después de reemplazar el `sw.js` es necesario desregistrar el SW
+  viejo (DevTools → Application → Service Workers → Unregister, o borrar
+  datos del sitio en el celular) para que la actualización tome efecto.
+
+---
+
 ## 1.19.0 (v38) · 2025-10-08
 **Alerta visual de cota de nieve baja**
 
