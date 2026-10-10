@@ -1,6 +1,6 @@
 // IndexedDB + localStorage wrapper
 const DB_NAME = 'bolson-clima';
-const DB_VERSION = 1;
+const DB_VERSION = 2;  // ← subido de 1 a 2
 
 const Storage = (() => {
   let db = null;
@@ -13,6 +13,7 @@ const Storage = (() => {
         if (!d.objectStoreNames.contains('forecast')) d.createObjectStore('forecast', { keyPath: 'id' });
         if (!d.objectStoreNames.contains('observations')) d.createObjectStore('observations', { keyPath: 'id', autoIncrement: true });
         if (!d.objectStoreNames.contains('historical')) d.createObjectStore('historical', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('aerodromo')) d.createObjectStore('aerodromo', { keyPath: 'id' });  // ← NUEVO
       };
       req.onsuccess = (e) => { db = e.target.result; resolve(db); };
       req.onerror = (e) => reject(e.target.error);
@@ -55,7 +56,6 @@ const Storage = (() => {
     });
   }
 
-  // Preferencias
   const prefs = {
     get(k, def) { try { const v = localStorage.getItem('pref_' + k); return v ? JSON.parse(v) : def; } catch { return def; } },
     set(k, v) { localStorage.setItem('pref_' + k, JSON.stringify(v)); },

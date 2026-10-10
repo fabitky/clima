@@ -38,7 +38,6 @@ const App = (() => {
     el.textContent = '⚠️ ' + msg;
     el.style.display = 'block';
   }
-
   function ocultarError() {
     const el = document.getElementById('app-error');
     if (el) el.style.display = 'none';
@@ -69,7 +68,6 @@ const App = (() => {
     const r = await fetch('data/climate-baseline.json');
     baseline = await r.json();
   }
-
   async function cargarHistorical() {
     if (historical) return historical;
     try {
@@ -83,11 +81,6 @@ const App = (() => {
     if (!baseline) return null;
     const n = baseline.normales_mensuales.find(x => x.mes === mes);
     return n ? n.t_mean : null;
-  }
-
-  function fmtCotaNieve(m) {
-    if (m == null) return '—';
-    return m.toLocaleString('es-AR') + ' m';
   }
 
   function resumenDia(dia, horas) {
@@ -147,7 +140,7 @@ const App = (() => {
       }
       document.body.classList.remove('bg-dawn', 'bg-day', 'bg-dusk', 'bg-night');
       document.body.classList.add(clase);
-    } catch (e) { /* silencioso */ }
+    } catch (e) {}
   }
 
   function tipoEfecto(code) {
@@ -178,7 +171,6 @@ const App = (() => {
         destruirEfectos();
         return;
       }
-
       if (fxElement && fxElement.dataset.tipo === tipo) return;
 
       destruirEfectos();
@@ -222,7 +214,7 @@ const App = (() => {
       }
 
       document.body.insertBefore(fxElement, document.body.firstChild);
-    } catch (e) { /* silencioso */ }
+    } catch (e) {}
   }
 
   function renderSabias() {
@@ -272,7 +264,6 @@ const App = (() => {
       const horasHoy = forecastActual.hourly.filter(x => x.t.startsWith(hoy.fecha));
       document.getElementById('resumen-hoy').innerHTML = resumenDia(hoy, horasHoy);
 
-      // Botón "Ver detalle completo" → abre el modal del día 0 (hoy)
       const btnDetalle = document.getElementById('btn-detalle-hoy');
       if (btnDetalle) {
         btnDetalle.onclick = () => abrirDetalleDia(0);
@@ -308,6 +299,9 @@ const App = (() => {
         `;
       }
 
+      renderStrip24h(forecastActual.hourly.slice(horaActual, horaActual + 24));
+      renderMicroclimas();
+
       const acts = Alerts.actividades(forecastActual, 0);
       document.getElementById('actividades').innerHTML = acts.map(a => `
         <div class="actividad">
@@ -315,7 +309,6 @@ const App = (() => {
           <span class="estado ${a.estado}">${a.label}</span>
         </div>`).join('');
 
-      renderStrip24h(forecastActual.hourly.slice(horaActual, horaActual + 24));
       renderSabias();
       actualizarEfectos();
     } catch (e) {
@@ -331,15 +324,8 @@ const App = (() => {
       const hr = new Date(h.t).getHours();
       const horaStr = String(hr).padStart(2, '0') + 'h';
       const esAhora = hr === horaActual && new Date(h.t).toDateString() === ahora.toDateString();
-
-      // Precipitación real (si llueve)
       const precip = h.precip >= 0.1 ? h.precip.toFixed(1) + 'mm' : '';
-
-      // Probabilidad: se muestra solo si >= 20%
-      const prob = h.precipProb != null && h.precipProb >= 20
-        ? h.precipProb + '%'
-        : '';
-
+      const prob = h.precipProb != null && h.precipProb >= 20 ? h.precipProb + '%' : '';
       return `<div class="hourly-card ${esAhora ? 'now' : ''}">
         <span class="hc-hora">${horaStr}</span>
         <span class="hc-sky">${Sky.icon(h.code, 32)}</span>
@@ -371,11 +357,8 @@ const App = (() => {
         const viento = Math.round(d.viento_max);
         const racha = Math.round(d.racha_max);
         const uv = d.uv_max != null ? Math.round(d.uv_max) : '—';
-
-        // Probabilidad de precipitación del día (máximo)
         const probMax = d.precipProb != null ? d.precipProb : null;
         const probTxt = probMax != null && probMax >= 20 ? probMax + '%' : '';
-
         const fireDot = fire ? `<span class="wr-fire-dot" style="background:${fire.color}" title="Incendio: ${fire.nivel}"></span>` : '';
 
         return `<div class="week-row" data-dia="${i}">
@@ -428,9 +411,9 @@ const App = (() => {
     </div>`;
   }
 
-  // Helper: arma un stat con icono + etiqueta + valor
-  function statItem(icon, label, value) {
-    return `<div class="stat-item">
+  // statItem: acepta una clase extra opcional para destacar la tarjeta
+  function statItem(icon, label, value, extraClass = '') {
+    return `<div class="stat-item ${extraClass}">
       <span class="si-icon">${icon}</span>
       <div class="si-body">
         <span class="si-lbl">${label}</span>
@@ -509,7 +492,6 @@ const App = (() => {
 
       const resumen = resumenDia(dia, horas);
 
-      // ===== STATS con icono + etiqueta + valor =====
       let fireStatHTML = '';
       if (fire) {
         fireStatHTML = `<div class="stat-item">
@@ -521,9 +503,22 @@ const App = (() => {
         </div>`;
       }
 
+      // ===== DETECCIÓN DE COTA DE NIEVE BAJA =====
+      // Si la cota media es menor a 350 m s.n.m., hay riesgo de nieve
+      // prácticamente al nivel del valle (El Bolsón está a ~300 m).
+      const cotaEsBaja = cotaMedia != null && cotaMedia < 350;
+      const cotaValorHTML = cotaMedia != null
+        ? `${cotaMedia} m${cotaEsBaja ? ' ⚠️' : ''}`
+        : '—';
+
       const statsHTML = [
         statItem('🌧️', 'Precipitación', precipTotal > 0 ? precipTotal.toFixed(1) + ' mm' : '—'),
-        statItem('❄️', 'Cota nieve', cotaMedia != null ? cotaMedia + ' m' : '—'),
+        statItem(
+          '❄️',
+          cotaEsBaja ? '¡Nieve en el valle!' : 'Cota nieve',
+          cotaValorHTML,
+          cotaEsBaja ? 'stat-alerta' : ''
+        ),
         statItem('💨', 'Viento máx', vientoMax + ' km/h'),
         statItem('🌀', 'Ráfagas máx', rachaMax + ' km/h'),
         statItem('💧', 'Humedad media', humedadMedia + '%'),
@@ -609,6 +604,7 @@ const App = (() => {
         if (f) datos.push(f);
       }
       const cont = document.getElementById('micro-chart');
+      if (!cont) return;
       if (!datos.length) {
         cont.innerHTML = '<p class="muted">Sin datos. Actualizá primero.</p>';
         return;
@@ -672,8 +668,207 @@ const App = (() => {
         </div>
       `;
     } catch (e) {
-      mostrarError('Error en Microclimas: ' + (e.message || e));
+      console.error('Error en Microclimas:', e);
     }
+  }
+
+  const INFO_TEXTS = {
+    hist: {
+      titulo: '🔍 Buscar por fecha',
+      html: `<p>Consultá el clima real que hizo en El Bolsón en cualquier día desde 1940 hasta ayer.</p>
+        <ul>
+          <li><strong>Primera vez:</strong> consulta la base de datos de Open-Meteo (necesita internet).</li>
+          <li><strong>Después:</strong> queda guardado en tu celular y funciona sin conexión.</li>
+        </ul>
+        <p>Se muestran <strong>todos los datos disponibles</strong>: temperaturas, sensación térmica, precipitación total, horas de lluvia, nieve, viento, ráfagas, dirección dominante, radiación solar, evapotranspiración, salida y puesta del sol.</p>`
+    },
+    anio: {
+      titulo: '📊 Explorar por año',
+      html: `<p>Mirá el resumen climático de cualquier año entre 1940 y 2025.</p>
+        <ul>
+          <li><strong>Datos anuales:</strong> temperatura media y precipitación total del año, con la anomalía respecto al promedio 1940–2024.</li>
+          <li><strong>Detalle mensual:</strong> disponible para todos los años del registro.</li>
+          <li><strong>Estacionalidad:</strong> precipitación acumulada por estación (verano, otoño, invierno, primavera).</li>
+        </ul>`
+    },
+    tendencia: {
+      titulo: '📈 Tendencia de precipitación',
+      html: `<p>Muestra cómo cambió la precipitación anual en El Bolsón a lo largo del tiempo.</p>
+        <ul>
+          <li>Cada barrita es un año. Altura proporcional a la precipitación total.</li>
+          <li>Color <strong>celeste</strong>: años por encima del promedio (más lluviosos).</li>
+          <li>Color <strong>marrón</strong>: años por debajo (más secos).</li>
+        </ul>
+        <p>Usá el selector de rango para enfocarte en un período específico. Tocá una barra para ver el año y valor exacto.</p>`
+    },
+    mensual: {
+      titulo: '💧 Precipitación mensual',
+      html: `<p>Muestra cuánto llueve en promedio cada mes del año en El Bolsón.</p>
+        <ul>
+          <li>Barras grises: promedio 1940–2024.</li>
+          <li>Barras de color: el año que elijas para comparar.</li>
+          <li>Tabla inferior: incluye <strong>máximos y mínimos históricos</strong> de cada mes.</li>
+        </ul>`
+    }
+  };
+
+  function abrirInfo(key) {
+    const info = INFO_TEXTS[key];
+    if (!info) return;
+    document.getElementById('modal-info-body').innerHTML = `
+      <h3>${info.titulo}</h3>
+      ${info.html}
+    `;
+    document.getElementById('modal-info').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  function cerrarInfo() {
+    document.getElementById('modal-info').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+  function initInfoButtons() {
+    document.querySelectorAll('.info-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        abrirInfo(btn.dataset.info);
+      };
+    });
+    document.getElementById('modal-info-close').onclick = cerrarInfo;
+    document.getElementById('modal-info').onclick = (e) => {
+      if (e.target.id === 'modal-info') cerrarInfo();
+    };
+  }
+
+  const ESTACIONES = {
+    verano:    { nombre: 'Verano',    icon: '☀️', meses: [11, 0, 1] },
+    otonio:    { nombre: 'Otoño',     icon: '🍂', meses: [2, 3, 4] },
+    invierno:  { nombre: 'Invierno',  icon: '❄️', meses: [5, 6, 7] },
+    primavera: { nombre: 'Primavera', icon: '🌸', meses: [8, 9, 10] }
+  };
+
+  function precipEstacional(precipMensual) {
+    if (!precipMensual || precipMensual.length !== 12) return null;
+    const vals = precipMensual.map(v => v != null ? v : 0);
+    return {
+      verano:    vals[11] + vals[0] + vals[1],
+      otonio:    vals[2] + vals[3] + vals[4],
+      invierno:  vals[5] + vals[6] + vals[7],
+      primavera: vals[8] + vals[9] + vals[10]
+    };
+  }
+
+  async function buscarHistorial(fechaStr) {
+    const cont = document.getElementById('hist-resultado');
+    if (!fechaStr) return;
+    cont.innerHTML = '<p class="muted" style="margin-top:10px">Buscando…</p>';
+
+    try {
+      let cached = await Storage.get('historical', 'day_' + fechaStr);
+      if (cached && cached.t_max != null) {
+        renderHistorial(cached);
+        return;
+      }
+
+      const data = await DataFetcher.fetchHistorico('centro', fechaStr);
+      data.id = 'day_' + fechaStr;
+      await Storage.put('historical', data);
+      renderHistorial(data);
+    } catch (e) {
+      cont.innerHTML = '<p class="muted" style="margin-top:10px">No se pudo obtener. Verificá tu conexión.</p>';
+    }
+  }
+
+  function fmtHora(isoStr) {
+    if (!isoStr) return '—';
+    const m = isoStr.match(/T(\d{2}):(\d{2})/);
+    return m ? m[1] + ':' + m[2] : '—';
+  }
+  function fmtDuracion(segundos) {
+    if (segundos == null) return '—';
+    const h = Math.floor(segundos / 3600);
+    const min = Math.round((segundos % 3600) / 60);
+    return h + 'h ' + min + 'm';
+  }
+
+  function renderHistorial(data) {
+    const fecha = new Date(data.fecha + 'T12:00:00');
+    const nombre = fecha.toLocaleDateString('es-AR', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+    const media = mediaHistoricaMes(fecha.getMonth() + 1);
+    const diff = (data.t_mean != null && media) ? data.t_mean - media : null;
+    const sol = Sun.times(fecha, -41.96, -71.53, -3);
+
+    const flecha = data.viento_dir != null ? DataFetcher.gradosAFlecha(data.viento_dir) : '';
+    const dir = data.viento_dir != null ? DataFetcher.gradosADireccion(data.viento_dir) : '—';
+
+    document.getElementById('hist-resultado').innerHTML = `
+      <div class="hist-card">
+        <div class="hist-fecha">${nombre}</div>
+        <div class="hist-hero">
+          <span class="hist-icon">${Sky.icon(data.code, 56)}</span>
+          <div class="hist-temps">
+            <div><span class="lbl">Máx</span> <b>${data.t_max != null ? data.t_max.toFixed(1) + '°C' : '—'}</b></div>
+            <div><span class="lbl">Mín</span> <b>${data.t_min != null ? data.t_min.toFixed(1) + '°C' : '—'}</b></div>
+            <div><span class="lbl">Media</span> <b>${data.t_mean != null ? data.t_mean.toFixed(1) + '°C' : '—'}</b></div>
+          </div>
+        </div>
+        <div class="hist-grid">
+          <div class="hist-item">
+            <span class="lbl">Precipitación</span>
+            <b>${data.precip != null ? data.precip.toFixed(1) + ' mm' : '—'}</b>
+            ${data.precip_horas != null ? `<span class="lbl" style="text-transform:none;margin-top:2px">${data.precip_horas} h de lluvia</span>` : ''}
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Nieve</span>
+            <b>${data.snow != null ? data.snow.toFixed(1) + ' cm' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Sensación máx</span>
+            <b>${data.sens_max != null ? data.sens_max.toFixed(1) + '°C' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Sensación mín</span>
+            <b>${data.sens_min != null ? data.sens_min.toFixed(1) + '°C' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Viento máx</span>
+            <b>${data.viento_max != null ? Math.round(data.viento_max) + ' km/h' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Ráfagas máx</span>
+            <b>${data.racha_max != null ? Math.round(data.racha_max) + ' km/h' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Dirección viento</span>
+            <b>${flecha} ${dir}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Radiación solar</span>
+            <b>${data.radiacion != null ? data.radiacion.toFixed(1) + ' MJ/m²' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Evapotranspiración</span>
+            <b>${data.et0 != null ? data.et0.toFixed(2) + ' mm' : '—'}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Salida sol</span>
+            <b>${fmtHora(data.sunrise) || Sun.fmt(sol.sunrise)}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Puesta sol</span>
+            <b>${fmtHora(data.sunset) || Sun.fmt(sol.sunset)}</b>
+          </div>
+          <div class="hist-item">
+            <span class="lbl">Duración del día</span>
+            <b>${data.daylight != null ? fmtDuracion(data.daylight) : Sun.dayLengthFmt(sol.dayLength)}</b>
+          </div>
+        </div>
+        ${diff != null ? `<div class="hist-diff ${diff >= 0 ? 'up' : 'down'}">
+          ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°C respecto a la media histórica del mes (${media.toFixed(1)}°C)
+        </div>` : ''}
+      </div>
+    `;
   }
 
   async function renderMemoria() {
@@ -693,80 +888,47 @@ const App = (() => {
         sel.value = hist.hasta;
         sel.onchange = () => renderAnio(Number(sel.value));
       }
-      renderAnio(Number(sel.value));
-      renderAnual(hist);
-      renderNormales();
+      await renderAnio(Number(sel.value));
 
-      const r = baseline.records;
-      document.getElementById('records-panel').innerHTML = `
-        <div class="record-item"><div><div class="label">Temp. máxima histórica</div><div class="valor">${r.temp_max_historica.valor}°C</div><span class="fecha">${r.temp_max_historica.fecha} · ${r.temp_max_historica.lugar}</span></div></div>
-        <div class="record-item"><div><div class="label">Temp. mínima histórica</div><div class="valor">${r.temp_min_historica.valor}°C</div><span class="fecha">${r.temp_min_historica.fecha} · ${r.temp_min_historica.lugar}</span></div></div>
-        <div class="record-item"><div><div class="label">Precipitación máxima diaria</div><div class="valor">${r.precip_max_diaria.valor} mm</div><span class="fecha">${r.precip_max_diaria.fecha}</span></div></div>
-        <div class="record-item"><div><div class="label">Mes más cálido</div><div class="valor">${r.mes_mas_calido.valor}°C</div><span class="fecha">${r.mes_mas_calido.fecha}</span></div></div>
-        <div class="record-item"><div><div class="label">Mes más frío</div><div class="valor">${r.mes_mas_frio.valor}°C</div><span class="fecha">${r.mes_mas_frio.fecha}</span></div></div>
-        <div class="record-item"><div><div class="label">Precipitación anual promedio</div><div class="valor">${r.precip_anual_promedio} mm</div></div></div>
-      `;
+      const selRango = document.getElementById('sel-rango');
+      if (!selRango.dataset.wired) {
+        selRango.dataset.wired = '1';
+        selRango.onchange = () => renderPrecipTendencia(hist, selRango.value);
+      }
+      renderPrecipTendencia(hist, selRango.value);
+
+      const selMensual = document.getElementById('sel-anio-mensual');
+      if (!selMensual.dataset.wired) {
+        selMensual.dataset.wired = '1';
+        for (let y = hist.hasta; y >= hist.desde; y--) {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          selMensual.appendChild(opt);
+        }
+        selMensual.onchange = () => renderMensual(Number(selMensual.value));
+      }
+      if (!selMensual.value) selMensual.value = hist.hasta;
+      await renderMensual(Number(selMensual.value));
     } catch (e) {
       mostrarError('Error en Memoria: ' + (e.message || e));
     }
   }
 
-  function renderAnual(hist) {
-    const años = hist.anios_tm;
-    const min = Math.min(...años);
-    const max = Math.max(...años);
-    const range = max - min || 1;
-    const cont = document.getElementById('anual-chart');
-    cont.innerHTML = años.map((v, i) => {
-      const pct = ((v - min) / range) * 85 + 15;
-      const año = hist.desde + i;
-      const t = (v - min) / range;
-      const r = Math.round(96 + t * (244 - 96));
-      const g = Math.round(165 + t * (162 - 165));
-      const b = Math.round(203 - t * (203 - 97));
-      return `<div class="sp-bar" style="height:${pct}%;background:rgb(${r},${g},${b})" title="${año}: ${v.toFixed(1)}°C"></div>`;
-    }).join('');
-
-    document.getElementById('anual-axis').innerHTML =
-      `<span>${hist.desde}</span><span>1960</span><span>1980</span><span>2000</span><span>${hist.hasta}</span>`;
-
-    const primero = años[0];
-    const ultimo = años[años.length - 1];
-    const diff = ultimo - primero;
-    document.getElementById('tendencia-texto').innerHTML =
-      `Entre <strong>${hist.desde}</strong> (${primero.toFixed(1)}°C) y <strong>${hist.hasta}</strong> (${ultimo.toFixed(1)}°C), la temperatura media anual en El Bolsón aumentó <strong>${diff.toFixed(1)}°C</strong>. Consistente con la tendencia regional de la Patagonia Norte.`;
+  async function obtenerMensual(year, hist) {
+    const local = hist.monthly_recent[String(year)];
+    if (local && local.temp && local.precip && local.temp.length === 12) {
+      return { year, temp: local.temp, precip: local.precip, fuente: 'local' };
+    }
+    const cached = await Storage.get('historical', 'year_' + year);
+    if (cached && cached.temp && cached.temp.length === 12) return cached;
+    const data = await DataFetcher.fetchYearMonthly('centro', year);
+    data.id = 'year_' + year;
+    await Storage.put('historical', data);
+    return data;
   }
 
-  function renderNormales() {
-    const normales = baseline.normales_mensuales;
-    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    const max = Math.max(...normales.map(n => n.precip_mm));
-    const cont = document.getElementById('normales-chart');
-    cont.innerHTML = normales.map((n, i) => {
-      const pct = (n.precip_mm / max) * 100;
-      return `<div class="bv-col">
-        <span class="bv-val">${n.precip_mm}</span>
-        <div class="bv-bar" style="height:${pct}%"></div>
-        <span class="bv-lbl">${meses[i]}</span>
-      </div>`;
-    }).join('');
-
-    document.getElementById('normales-tabla').innerHTML = `
-      <table>
-        <thead><tr><th>Mes</th><th>T med</th><th>T máx</th><th>T mín</th><th>Precip</th></tr></thead>
-        <tbody>
-          ${normales.map((n, i) => `<tr>
-            <td>${meses[i]}</td>
-            <td>${n.t_mean}°</td>
-            <td>${n.t_max}°</td>
-            <td>${n.t_min}°</td>
-            <td>${n.precip_mm} mm</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
-  }
-
-  function renderAnio(year) {
+  async function renderAnio(year) {
     const hist = historical;
     if (!hist) return;
     const i = year - hist.desde;
@@ -806,23 +968,52 @@ const App = (() => {
     else if (rankFrio <= 5) rankingTxt = `Fue el <strong>${rankFrio}° año más frío</strong> del registro.`;
     else rankingTxt = `Ocupa el puesto <strong>${rankCalido}°</strong> entre los más cálidos (de ${hist.anios_tm.length} años).`;
 
-    const mensual = hist.monthly_recent[String(year)];
+    const aviso = document.getElementById('anio-aviso');
+    const tempChart = document.getElementById('anio-temp-chart');
+    const tempLegend = document.getElementById('anio-temp-legend');
+    const precipChart = document.getElementById('anio-precip-chart');
+    const precipLegend = document.getElementById('anio-precip-legend');
+    const estacionesCont = document.getElementById('anio-estaciones');
+
+    aviso.classList.remove('hidden');
+    aviso.innerHTML = `Consultando datos mensuales de <strong>${year}</strong>…`;
+    tempChart.innerHTML = '';
+    tempLegend.innerHTML = '';
+    precipChart.innerHTML = '';
+    precipLegend.innerHTML = '';
+    estacionesCont.innerHTML = '';
+    document.getElementById('anio-comparativa').innerHTML = rankingTxt;
+
+    let dataMensual = null;
+    let error = null;
+    try {
+      dataMensual = await obtenerMensual(year, hist);
+    } catch (e) {
+      error = e.message || 'Error de conexión';
+    }
+
+    if (!dataMensual) {
+      aviso.innerHTML = `<strong>Sin datos mensuales para ${year}.</strong> No se pudo obtener (${error}).`;
+      return;
+    }
+
+    aviso.classList.add('hidden');
+
     const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const refMes = baseline.normales_mensuales.map(n => n.t_mean);
+    const refMesP = baseline.normales_mensuales.map(n => n.precip_mm);
+    const yearTemp = dataMensual.temp;
+    const yearPrecip = dataMensual.precip;
 
-    const yearVals = mensual && mensual.length === 12
-      ? mensual
-      : refMes.map(v => v + (tm - refTm));
+    const todosT = [...refMes, ...yearTemp.filter(v => v != null)];
+    const minT = Math.min(...todosT) - 1;
+    const maxT = Math.max(...todosT) + 1;
+    const rangeT = maxT - minT || 1;
 
-    const todos = [...refMes, ...yearVals];
-    const minAll = Math.min(...todos) - 1;
-    const maxAll = Math.max(...todos) + 1;
-    const rangeAll = maxAll - minAll || 1;
-
-    const chart = document.getElementById('anio-chart');
-    chart.innerHTML = meses.map((m, k) => {
-      const hRef = ((refMes[k] - minAll) / rangeAll) * 100;
-      const hYear = ((yearVals[k] - minAll) / rangeAll) * 100;
+    tempChart.innerHTML = meses.map((m, k) => {
+      const hRef = ((refMes[k] - minT) / rangeT) * 100;
+      const val = yearTemp[k];
+      const hYear = val != null ? ((val - minT) / rangeT) * 100 : 0;
       return `<div class="bp-col">
         <div class="bp-bars">
           <div class="bp-bar ref" style="height:${hRef}%"></div>
@@ -832,90 +1023,296 @@ const App = (() => {
       </div>`;
     }).join('');
 
-    document.getElementById('anio-legend').innerHTML = `
-      <div class="lg-item"><span class="lg-dot" style="background:#8fa8ba;opacity:.55"></span> Referencia 1940-2024</div>
+    tempLegend.innerHTML = `
+      <div class="lg-item"><span class="lg-dot" style="background:#8fa8ba;opacity:.55"></span> Referencia 1940–2024</div>
       <div class="lg-item"><span class="lg-dot" style="background:#f4a261"></span> ${year}</div>
     `;
 
-    if (mensual) {
-      document.getElementById('anio-comparativa').innerHTML =
-        `${rankingTxt} Comparado mes a mes con la referencia 1940–2024.`;
-    } else {
-      document.getElementById('anio-comparativa').innerHTML =
-        `${rankingTxt} Detalle mensual real disponible desde 2015. La curva naranja es una estimación basada en la anomalía anual.`;
-    }
-  }
+    const todosP = [...refMesP, ...yearPrecip.filter(v => v != null)];
+    const maxP = Math.max(...todosP) * 1.1 || 1;
+    const rangeP = maxP || 1;
 
-  async function buscarHistorial(fechaStr) {
-    const cont = document.getElementById('hist-resultado');
-    if (!fechaStr) return;
-    cont.innerHTML = '<p class="muted" style="margin-top:10px">Buscando…</p>';
+    precipChart.innerHTML = meses.map((m, k) => {
+      const hRef = (refMesP[k] / rangeP) * 100;
+      const val = yearPrecip[k];
+      const hYear = val != null ? (val / rangeP) * 100 : 0;
+      return `<div class="bp-col">
+        <div class="bp-bars">
+          <div class="bp-bar ref" style="height:${hRef}%"></div>
+          <div class="bp-bar year" style="height:${hYear}%;background:linear-gradient(180deg,#4a9bb5,#7dd3fc)"></div>
+        </div>
+        <span class="bp-lbl">${m}</span>
+      </div>`;
+    }).join('');
 
-    try {
-      let cached = await Storage.get('historical', 'day_' + fechaStr);
-      if (cached && cached.t_max != null) {
-        renderHistorial(cached);
-        return;
+    precipLegend.innerHTML = `
+      <div class="lg-item"><span class="lg-dot" style="background:#8fa8ba;opacity:.55"></span> Promedio 1940–2024</div>
+      <div class="lg-item"><span class="lg-dot" style="background:#4a9bb5"></span> ${year}</div>
+    `;
+
+    const estAnio = precipEstacional(yearPrecip);
+    const añosConDetalle = Object.keys(hist.monthly_recent).map(Number);
+    const sumas = { verano: 0, otonio: 0, invierno: 0, primavera: 0 };
+    let cuenta = 0;
+    añosConDetalle.forEach(y => {
+      const est = precipEstacional(hist.monthly_recent[String(y)].precip);
+      if (est) {
+        sumas.verano += est.verano;
+        sumas.otonio += est.otonio;
+        sumas.invierno += est.invierno;
+        sumas.primavera += est.primavera;
+        cuenta++;
       }
+    });
+    const promEst = cuenta > 0 ? {
+      verano: sumas.verano / cuenta,
+      otonio: sumas.otonio / cuenta,
+      invierno: sumas.invierno / cuenta,
+      primavera: sumas.primavera / cuenta
+    } : null;
 
-      const p = new URLSearchParams({
-        latitude: -41.96, longitude: -71.53,
-        start_date: fechaStr, end_date: fechaStr,
-        daily: 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max,weather_code',
-        timezone: 'America/Argentina/Salta'
-      });
-      const url = `https://archive-api.open-meteo.com/v1/archive?${p}`;
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('Error');
-      const j = await r.json();
-      const d = j.daily;
-      const data = {
-        id: 'day_' + fechaStr,
-        fecha: fechaStr,
-        t_max: d.temperature_2m_max[0],
-        t_min: d.temperature_2m_min[0],
-        t_mean: d.temperature_2m_mean[0],
-        precip: d.precipitation_sum[0],
-        viento_max: d.wind_speed_10m_max[0],
-        code: d.weather_code[0]
-      };
-      await Storage.put('historical', data);
-      renderHistorial(data);
-    } catch (e) {
-      cont.innerHTML = '<p class="muted" style="margin-top:10px">No se pudo obtener. Verificá tu conexión.</p>';
-    }
+    estacionesCont.innerHTML = Object.entries(ESTACIONES).map(([key, est]) => {
+      const val = estAnio ? estAnio[key] : null;
+      const prom = promEst ? promEst[key] : null;
+      let subHTML = '';
+      if (val != null && prom != null) {
+        const dif = val - prom;
+        subHTML = `<span class="est-sub ${dif >= 0 ? 'up' : 'down'}">${dif >= 0 ? '+' : ''}${dif.toFixed(0)} mm vs promedio</span>`;
+      }
+      return `<div class="estacion-item">
+        <span class="est-icon">${est.icon}</span>
+        <span class="est-nombre">${est.nombre}</span>
+        <span class="est-valor">${val != null ? Math.round(val) + ' mm' : '—'}</span>
+        ${subHTML}
+      </div>`;
+    }).join('');
   }
 
-  function renderHistorial(data) {
-    const fecha = new Date(data.fecha + 'T12:00:00');
-    const nombre = fecha.toLocaleDateString('es-AR', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    });
-    const media = mediaHistoricaMes(fecha.getMonth() + 1);
-    const diff = (data.t_mean != null && media) ? data.t_mean - media : null;
-    const sol = Sun.times(fecha, -41.96, -71.53, -3);
+  function renderPrecipTendencia(hist, rango) {
+    const [desde, hasta] = rango.split('-').map(Number);
+    const idxDesde = Math.max(0, desde - hist.desde);
+    const idxHasta = Math.min(hist.anios_p.length - 1, hasta - hist.desde);
 
-    document.getElementById('hist-resultado').innerHTML = `
-      <div class="hist-card">
-        <div class="hist-fecha">${nombre}</div>
-        <div class="hist-hero">
-          <span class="hist-icon">${Sky.icon(data.code, 56)}</span>
-          <div class="hist-temps">
-            <div><span class="lbl">Máx</span> <b>${data.t_max != null ? data.t_max.toFixed(1) + '°C' : '—'}</b></div>
-            <div><span class="lbl">Mín</span> <b>${data.t_min != null ? data.t_min.toFixed(1) + '°C' : '—'}</b></div>
-            <div><span class="lbl">Media</span> <b>${data.t_mean != null ? data.t_mean.toFixed(1) + '°C' : '—'}</b></div>
-          </div>
-        </div>
-        <div class="hist-grid">
-          <div class="hist-item"><span class="lbl">Precipitación</span><b>${data.precip != null ? data.precip.toFixed(1) + ' mm' : '—'}</b></div>
-          <div class="hist-item"><span class="lbl">Viento máx</span><b>${data.viento_max != null ? Math.round(data.viento_max) + ' km/h' : '—'}</b></div>
-          <div class="hist-item"><span class="lbl">Salida sol</span><b>${sol.polarDay ? 'Sol de medianoche' : (sol.polarNight ? 'N/A' : Sun.fmt(sol.sunrise))}</b></div>
-          <div class="hist-item"><span class="lbl">Puesta sol</span><b>${sol.polarDay ? '—' : (sol.polarNight ? 'N/A' : Sun.fmt(sol.sunset))}</b></div>
-        </div>
-        ${diff != null ? `<div class="hist-diff ${diff >= 0 ? 'up' : 'down'}">
-          ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}°C respecto a la media histórica del mes (${media.toFixed(1)}°C)
-        </div>` : ''}
+    const valores = [];
+    const años = [];
+    for (let i = idxDesde; i <= idxHasta; i++) {
+      const v = hist.anios_p[i];
+      if (v != null && !isNaN(v)) { valores.push(v); años.push(hist.desde + i); }
+    }
+    if (!valores.length) return;
+
+    const prom = valores.reduce((a, b) => a + b, 0) / valores.length;
+    const min = Math.min(...valores);
+    const max = Math.max(...valores);
+    const idxMin = valores.indexOf(min);
+    const idxMax = valores.indexOf(max);
+    const añoMin = años[idxMin];
+    const añoMax = años[idxMax];
+
+    document.getElementById('precip-resumen').innerHTML = `
+      <div class="pr-item">
+        <span class="pr-lbl">Promedio</span>
+        <span class="pr-val">${Math.round(prom)}</span>
+        <span class="pr-sub">mm/año</span>
       </div>
+      <div class="pr-item max">
+        <span class="pr-lbl">Más lluvioso</span>
+        <span class="pr-val">${max}</span>
+        <span class="pr-sub">${añoMax}</span>
+      </div>
+      <div class="pr-item min">
+        <span class="pr-lbl">Más seco</span>
+        <span class="pr-val">${min}</span>
+        <span class="pr-sub">${añoMin}</span>
+      </div>
+    `;
+
+    const visMin = min - 20;
+    const visMax = max + 20;
+    const range = visMax - visMin || 1;
+
+    const cont = document.getElementById('precip-chart');
+    cont.innerHTML = valores.map((v, i) => {
+      const pct = Math.max(8, ((v - visMin) / range) * 100);
+      const año = años[i];
+      let clase = 'normal';
+      if (v > prom * 1.10) clase = 'lluvioso';
+      else if (v < prom * 0.90) clase = 'seco';
+      const esExtremo = (i === idxMin || i === idxMax || i === 0 || i === valores.length - 1);
+      const mostrarValor = esExtremo && valores.length <= 40;
+      const dataAttrs = `data-idx="${i}" data-año="${año}" data-val="${v}"`;
+      return `<div class="p-bar ${clase} ${esExtremo ? 'extremo' : ''}"
+                style="height:${pct}%"
+                ${dataAttrs}>
+        ${mostrarValor ? `<span class="p-val">${v}</span>` : ''}
+      </div>`;
+    }).join('');
+
+    const line = document.getElementById('precip-promedio-line');
+    const chartHeight = 130;
+    const topPad = 22;
+    const usableHeight = chartHeight - topPad - 4;
+    const promPct = ((prom - visMin) / range) * 100;
+    const lineTop = topPad + (usableHeight * (1 - promPct / 100));
+    line.style.display = 'block';
+    line.style.top = lineTop + 'px';
+    document.getElementById('promedio-lbl').textContent = `Prom ${Math.round(prom)} mm`;
+
+    const paso = Math.ceil(años.length / 5);
+    const marcas = [];
+    for (let i = 0; i < años.length; i += paso) marcas.push(años[i]);
+    if (marcas[marcas.length - 1] !== años[años.length - 1]) marcas.push(años[años.length - 1]);
+    document.getElementById('precip-axis').innerHTML =
+      marcas.map(m => `<span>${m}</span>`).join('');
+
+    const tooltip = document.getElementById('precip-tooltip');
+    const wrap = document.querySelector('.precip-chart-wrap');
+
+    cont.querySelectorAll('.p-bar').forEach(bar => {
+      const handler = (e) => {
+        e.stopPropagation();
+        cont.querySelectorAll('.p-bar.active').forEach(b => b.classList.remove('active'));
+        bar.classList.add('active');
+        const val = parseInt(bar.dataset.val, 10);
+        const año = bar.dataset.año;
+        const dif = val - prom;
+        const difTxt = dif >= 0 ? `+${Math.round(dif)} mm vs promedio` : `${Math.round(dif)} mm vs promedio`;
+        const difClase = dif >= 0 ? 'up' : 'down';
+        tooltip.innerHTML = `
+          <span class="tt-año">${año}</span><span class="tt-val">${val} mm</span>
+          <span class="tt-dif ${difClase}">${difTxt}</span>
+        `;
+        tooltip.classList.remove('hidden');
+        const barRect = bar.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        const left = barRect.left - wrapRect.left + barRect.width / 2;
+        const top = barRect.top - wrapRect.top;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        clearTimeout(handler._t);
+        handler._t = setTimeout(() => {
+          tooltip.classList.add('hidden');
+          bar.classList.remove('active');
+        }, 3000);
+      };
+      bar.addEventListener('click', handler);
+      bar.addEventListener('touchstart', handler, { passive: true });
+    });
+
+    const ocultarTooltip = () => {
+      tooltip.classList.add('hidden');
+      cont.querySelectorAll('.p-bar.active').forEach(b => b.classList.remove('active'));
+    };
+    document.addEventListener('click', ocultarTooltip, { once: true });
+    window.addEventListener('scroll', ocultarTooltip, { once: true, passive: true });
+
+    const primeros10 = valores.slice(0, Math.min(10, valores.length));
+    const ultimos10 = valores.slice(-Math.min(10, valores.length));
+    const promIni = primeros10.reduce((a, b) => a + b, 0) / primeros10.length;
+    const promFin = ultimos10.reduce((a, b) => a + b, 0) / ultimos10.length;
+    const dif = promFin - promIni;
+
+    let tendencia, icono;
+    if (Math.abs(dif) < 50) { tendencia = 'se mantiene <strong>estable</strong>'; icono = '➡️'; }
+    else if (dif > 0) { tendencia = 'está <strong>aumentando</strong>'; icono = '📈'; }
+    else { tendencia = 'está <strong>disminuyendo</strong>'; icono = '📉'; }
+
+    const añosSecos = valores.filter(v => v < prom * 0.90).length;
+    const añosLluviosos = valores.filter(v => v > prom * 1.10).length;
+    const añosNormales = valores.length - añosSecos - añosLluviosos;
+
+    document.getElementById('precip-tendencia-texto').innerHTML = `
+      <p style="margin-bottom:10px">
+        ${icono} En el período <strong>${desde}–${hasta}</strong>, la precipitación anual en El Bolsón ${tendencia}.
+      </p>
+      <div>
+        <span class="dato">🔵 Años lluviosos <b>${añosLluviosos}</b></span>
+        <span class="dato">⚪ Años normales <b>${añosNormales}</b></span>
+        <span class="dato">🟤 Años secos <b>${añosSecos}</b></span>
+      </div>
+      <p style="margin-top:10px;font-size:12px">
+        Promedio del período: <strong>${Math.round(prom)} mm/año</strong>.
+        Rango: de <strong>${min} mm</strong> (${añoMin}) a <strong>${max} mm</strong> (${añoMax}).
+      </p>
+    `;
+  }
+
+  async function renderMensual(year) {
+    const hist = historical;
+    if (!hist || !year) return;
+
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const normales = baseline.normales_mensuales;
+    const promedios = normales.map(n => n.precip_mm);
+    const maxHist = normales.map(n => n.precip_max_hist || n.precip_mm);
+    const minHist = normales.map(n => n.precip_min_hist || 0);
+
+    const chart = document.getElementById('mensual-chart');
+    const legend = document.getElementById('mensual-legend');
+    const tabla = document.getElementById('mensual-tabla');
+
+    chart.innerHTML = '<p class="muted" style="text-align:center;padding:20px 0">Consultando año ' + year + '…</p>';
+    legend.innerHTML = '';
+    tabla.innerHTML = '';
+
+    let dataMensual = null;
+    try {
+      dataMensual = await obtenerMensual(year, hist);
+    } catch (e) {}
+
+    if (!dataMensual) {
+      chart.innerHTML = `<p class="muted" style="text-align:center;padding:20px 0">No se pudo obtener el año ${year}.</p>`;
+      return;
+    }
+
+    const valoresAño = dataMensual.precip;
+
+    const todos = [...promedios, ...maxHist, ...valoresAño.filter(v => v != null)];
+    const maxAll = Math.max(...todos) * 1.05 || 1;
+    const range = maxAll;
+
+    chart.innerHTML = meses.map((m, k) => {
+      const hProm = (promedios[k] / range) * 100;
+      const val = valoresAño[k];
+      const hYear = val != null ? (val / range) * 100 : 0;
+      return `<div class="bp-col">
+        <div class="bp-bars">
+          <div class="bp-bar ref" style="height:${hProm}%"></div>
+          <div class="bp-bar year" style="height:${hYear}%;background:linear-gradient(180deg,#4a9bb5,#7dd3fc)"></div>
+        </div>
+        <span class="bp-lbl">${m}</span>
+      </div>`;
+    }).join('');
+
+    legend.innerHTML = `
+      <div class="lg-item"><span class="lg-dot" style="background:#8fa8ba;opacity:.55"></span> Promedio 1940–2024</div>
+      <div class="lg-item"><span class="lg-dot" style="background:#4a9bb5"></span> ${year}</div>
+    `;
+
+    const filas = meses.map((m, k) => {
+      const valAño = valoresAño[k];
+      return `<tr>
+        <td>${m}</td>
+        <td>${promedios[k]} mm</td>
+        <td>${valAño != null ? Math.round(valAño) + ' mm' : '—'}</td>
+        <td>${maxHist[k]} mm</td>
+        <td>${minHist[k]} mm</td>
+      </tr>`;
+    }).join('');
+
+    tabla.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th>Promedio</th>
+            <th>${year}</th>
+            <th>Máx hist</th>
+            <th>Mín hist</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
     `;
   }
 
@@ -928,15 +1325,12 @@ const App = (() => {
     document.getElementById('tab-' + nombre).classList.add('active');
     return true;
   }
-
   function renderTabActivo() {
     const tab = document.querySelector('.tab.active')?.dataset.tab;
     if (tab === 'hoy') renderHoy();
     else if (tab === 'pronostico') renderPronostico();
-    else if (tab === 'microclimas') renderMicroclimas();
     else if (tab === 'memoria') renderMemoria();
   }
-
   function initTabs() {
     document.querySelectorAll('.tab').forEach(btn => {
       btn.onclick = () => {
@@ -967,12 +1361,12 @@ const App = (() => {
     const diffH = (Date.now() - ts) / 3600000;
     const esGenerado = forecastActual.fuente === 'generado-local';
     if (esGenerado) {
-      el.textContent = 'Estimación offline · tocá ⟳ para datos reales';
+      el.textContent = 'Estimación local · tocá ⟳ para actualizar con Open-Meteo';
       return;
     }
-    if (diffH < 1) el.textContent = 'Datos reales · actualizado hace menos de 1 h';
-    else if (diffH < 24) el.textContent = `Datos reales · actualizado hace ${Math.round(diffH)} h`;
-    else el.textContent = `Datos reales · última actualización: ${new Date(ts).toLocaleDateString('es-AR')}`;
+    if (diffH < 1) el.textContent = 'Fuente: Open-Meteo · actualizado hace menos de 1 h';
+    else if (diffH < 24) el.textContent = `Fuente: Open-Meteo · actualizado hace ${Math.round(diffH)} h`;
+    else el.textContent = `Fuente: Open-Meteo · última actualización: ${new Date(ts).toLocaleDateString('es-AR')}`;
   }
 
   async function onUpdate() {
@@ -1011,9 +1405,10 @@ const App = (() => {
       setInterval(actualizarFondo, 5 * 60 * 1000);
 
       initTabs();
+      initInfoButtons();
 
       const tabParam = params.get('tab');
-      if (tabParam && ['hoy', 'pronostico', 'microclimas', 'memoria'].includes(tabParam)) {
+      if (tabParam && ['hoy', 'pronostico', 'memoria', 'emergencia'].includes(tabParam)) {
         activarTabPorNombre(tabParam);
       }
 

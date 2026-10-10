@@ -27,11 +27,32 @@ const DataFetcher = (() => {
     return `https://api.open-meteo.com/v1/forecast?${p}`;
   }
 
-  function buildArchiveURL(lat, lon, startDate, endDate) {
+  function buildDayArchiveURL(lat, lon, fecha) {
     const p = new URLSearchParams({
-      latitude: lat, longitude: lon,
-      start_date: startDate, end_date: endDate,
-      daily: 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum',
+      latitude: lat,
+      longitude: lon,
+      start_date: fecha,
+      end_date: fecha,
+      daily: [
+        'temperature_2m_max', 'temperature_2m_min', 'temperature_2m_mean',
+        'apparent_temperature_max', 'apparent_temperature_min',
+        'precipitation_sum', 'rain_sum', 'snowfall_sum', 'precipitation_hours',
+        'sunrise', 'sunset', 'daylight_duration', 'sunshine_duration',
+        'wind_speed_10m_max', 'wind_gusts_10m_max', 'wind_direction_10m_dominant',
+        'shortwave_radiation_sum', 'et0_fao_evapotranspiration', 'weather_code'
+      ].join(','),
+      timezone: 'America/Argentina/Salta'
+    });
+    return `https://archive-api.open-meteo.com/v1/archive?${p}`;
+  }
+
+  function buildYearArchiveURL(lat, lon, year) {
+    const p = new URLSearchParams({
+      latitude: lat,
+      longitude: lon,
+      start_date: `${year}-01-01`,
+      end_date: `${year}-12-31`,
+      daily: 'temperature_2m_mean,precipitation_sum',
       timezone: 'America/Argentina/Salta'
     });
     return `https://archive-api.open-meteo.com/v1/archive?${p}`;
@@ -87,12 +108,11 @@ const DataFetcher = (() => {
     return 'sin nieve en la zona';
   }
 
-  // Fase lunar — cálculo offline (sin API)
   function moonPhaseInfo(date) {
     const newMoon = Date.UTC(2000, 0, 6, 18, 14);
     const synodic = 29.530588853;
     const days = (date.getTime() - newMoon) / 86400000;
-    const p = ((days % synodic) + synodic) % synodic / synodic; // 0..1
+    const p = ((days % synodic) + synodic) % synodic / synodic;
     const pct = Math.round(p * 100);
     if (p < 0.03 || p >= 0.97) return { icon: '🌑', nombre: 'Luna nueva', pct };
     if (p < 0.22) return { icon: '🌒', nombre: 'Creciente', pct };
@@ -160,6 +180,72 @@ const DataFetcher = (() => {
     };
   }
 
+  async function fetchHistorico(puntoKey, fecha) {
+    const p = PUNTOS[puntoKey];
+    const url = buildDayArchiveURL(p.lat, p.lon, fecha);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Error histórico');
+    const j = await r.json();
+    const d = j.daily;
+    if (!d || !d.time || !d.time.length) throw new Error('Sin datos');
+    return {
+      fecha,
+      t_max: d.temperature_2m_max[0],
+      t_min: d.temperature_2m_min[0],
+      t_mean: d.temperature_2m_mean[0],
+      sens_max: d.apparent_temperature_max ? d.apparent_temperature_max[0] : null,
+      sens_min: d.apparent_temperature_min ? d.apparent_temperature_min[0] : null,
+      precip: d.precipitation_sum[0],
+      rain: d.rain_sum ? d.rain_sum[0] : null,
+      snow: d.snowfall_sum ? d.snowfall_sum[0] : null,
+      precip_horas: d.precipitation_hours ? d.precipitation_hours[0] : null,
+      sunrise: d.sunrise ? d.sunrise[0] : null,
+      sunset: d.sunset ? d.sunset[0] : null,
+      daylight: d.daylight_duration ? d.daylight_duration[0] : null,
+      sunshine: d.sunshine_duration ? d.sunshine_duration[0] : null,
+      viento_max: d.wind_speed_10m_max[0],
+      racha_max: d.wind_gusts_10m_max ? d.wind_gusts_10m_max[0] : null,
+      viento_dir: d.wind_direction_10m_dominant ? d.wind_direction_10m_dominant[0] : null,
+      radiacion: d.shortwave_radiation_sum ? d.shortwave_radiation_sum[0] : null,
+      et0: d.et0_fao_evapotranspiration ? d.et0_fao_evapotranspiration[0] : null,
+      code: d.weather_code[0]
+    };
+  }
+
+  async function fetchYearMonthly(puntoKey, year) {
+    const p = PUNTOS[puntoKey];
+    const url = buildYearArchiveURL(p.lat, p.lon, year);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Error al consultar Open-Meteo');
+    const j = await r.json();
+    const d = j.daily;
+    if (!d || !d.time || !d.time.length) throw new Error('Sin datos para ese año');
+
+    const sumT = new Array(12).fill(0);
+    const cntT = new Array(12).fill(0);
+    const sumP = new Array(12).fill(0);
+    const cntP = new Array(12).fill(0);
+
+    d.time.forEach((fechaISO, idx) => {
+      const mes = parseInt(fechaISO.slice(5, 7), 10) - 1;
+      const t = d.temperature_2m_mean[idx];
+      const pr = d.precipitation_sum[idx];
+      if (t != null && !isNaN(t)) { sumT[mes] += t; cntT[mes]++; }
+      if (pr != null && !isNaN(pr)) { sumP[mes] += pr; cntP[mes]++; }
+    });
+
+    const temp = sumT.map((s, i) => cntT[i] > 0 ? Math.round((s / cntT[i]) * 10) / 10 : null);
+    const precip = sumP.map((s, i) => cntP[i] > 0 ? Math.round(s * 10) / 10 : null);
+
+    return {
+      year,
+      temp,
+      precip,
+      fuente: 'open-meteo',
+      actualizado: Date.now()
+    };
+  }
+
   async function actualizarTodo() {
     const results = {};
     for (const k of Object.keys(PUNTOS)) {
@@ -176,9 +262,16 @@ const DataFetcher = (() => {
   }
 
   return {
-    fetchForecast, actualizarTodo,
-    wmoToIcon, wmoToDesc, gradosADireccion, gradosAFlecha,
-    cotaNieveDesc, moonPhaseInfo,
+    fetchForecast,
+    fetchHistorico,
+    fetchYearMonthly,
+    actualizarTodo,
+    wmoToIcon,
+    wmoToDesc,
+    gradosADireccion,
+    gradosAFlecha,
+    cotaNieveDesc,
+    moonPhaseInfo,
     PUNTOS
   };
 })();
