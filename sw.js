@@ -62,6 +62,14 @@ self.addEventListener('activate', (event) => {
 // FETCH: cache-first con fallbacks
 // ==========================================
 self.addEventListener('fetch', (event) => {
+// En tu sw.js, dentro del event 'fetch'
+  const url = new URL(event.request.url);
+  if (url.pathname.includes('/.well-known/')) {
+    event.respondWith(fetch(event.request));
+  return;
+  }
+
+  
   const req = event.request;
   if (req.method !== 'GET') return;
 
